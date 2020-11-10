@@ -7,9 +7,8 @@
  * Author:
  *
  */
-const { pipeline } = require("stream");
-
 const unzipper = require("unzipper"),
+  { pipeline } = require("stream"),
   fs = require("fs"),
   PNG = require("pngjs").PNG,
   path = require("path");
