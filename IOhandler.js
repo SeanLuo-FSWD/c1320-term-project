@@ -7,6 +7,7 @@
  * Author:
  *
  */
+const { pipeline } = require("stream");
 
 const unzipper = require("unzipper"),
   fs = require("fs"),
@@ -72,42 +73,45 @@ const grayScale = (pathIn, pathOut) => {
   return new Promise((resolve, reject) => {
     for (let i = 0; i < pathIn.length; i++) {
       let imgPath = path.join(__dirname, "unzipped", pathIn[i]);
-      //create a read stream from an img
-      fs.createReadStream(imgPath)
-        .pipe(
-          //sending the read bytes to the PNG library, which is a function that give us back the transform stream
-          new PNG({
-            filterType: 4,
-          })
-        )
-        // parse the binary data to pixel data that we use
-        .on("parsed", function () {
-          console.log("parsed");
-          for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
-              let idx = (this.width * y + x) << 2;
-              let grey =
-                this.data[idx] * 0.299 +
-                this.data[idx + 1] * 0.587 +
-                this.data[idx + 2] * 0.114;
 
-              this.data[idx] = grey;
-              this.data[idx + 1] = grey;
-              this.data[idx + 2] = grey;
-            }
+      let newPNG = new PNG({
+        filterType: 4,
+      });
+      newPNG.on("parsed", function () {
+        console.log("parsed");
+        for (let y = 0; y < this.height; y++) {
+          for (let x = 0; x < this.width; x++) {
+            let idx = (this.width * y + x) << 2;
+            let grey =
+              this.data[idx] * 0.299 +
+              this.data[idx + 1] * 0.587 +
+              this.data[idx + 2] * 0.114;
+
+            this.data[idx] = grey;
+            this.data[idx + 1] = grey;
+            this.data[idx + 2] = grey;
           }
+        }
 
-          let greyImg = this.pack().pipe(
-            fs.createWriteStream(path.join(pathOut, pathIn[i]))
-          );
-          greyImg.on("error", (err) => {
-            reject(err);
-          });
-          greyImg.on("finish", () => {
-            console.log("Greyscale images saved");
-            resolve();
-          });
+        let greyImg = this.pack().pipe(
+          fs.createWriteStream(path.join(pathOut, pathIn[i]))
+        );
+        greyImg.on("error", (err) => {
+          reject(err);
         });
+        greyImg.on("finish", () => {
+          console.log("Greyscale images saved");
+          resolve();
+        });
+      });
+
+      pipeline(fs.createReadStream(imgPath), newPNG, function onEnd(err) {
+        if (err) {
+          console.log(`Error: ${err}`);
+          process.exit(1);
+        }
+        console.log("Done!");
+      });
     }
   });
 };
